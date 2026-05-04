@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KokiSan · Evaluador Polymarket</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0f;--surface:#111118;--card:#161622;--border:#2a2a3d;
+  --accent:#7c6af7;--accent2:#f7c66a;--accent3:#6af7b8;--danger:#f76a6a;
+  --text:#e8e6f0;--muted:#7a7896;
+  --mono:'IBM Plex Mono',monospace;--serif:'Libre Baskerville',serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 80% 60% at 20% 10%,rgba(124,106,247,.07) 0%,transparent 60%),
+             radial-gradient(ellipse 60% 40% at 80% 80%,rgba(106,247,184,.05) 0%,transparent 50%);
+  pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:40px 24px 80px;}
+
+/* header */
+header{margin-bottom:40px;border-bottom:1px solid var(--border);padding-bottom:24px;}
+.brand{font-family:var(--serif);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;font-style:italic;}
+h1{font-family:var(--serif);font-size:clamp(22px,4vw,30px);font-weight:700;line-height:1.15;}
+h1 span{color:var(--accent);}
+.tagline{font-size:10px;color:var(--muted);margin-top:7px;letter-spacing:.1em;}
+
+/* section label */
+.slabel{font-size:9px;letter-spacing:.35em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* capital bar */
+.cap-bar{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--accent);padding:12px 18px;border-radius:4px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+.cap-bar input{background:transparent;border:none;text-align:right;font-size:18px;color:var(--accent2);font-weight:600;width:90px;font-family:var(--mono);outline:none;}
+
+/* generic inputs */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+@media(max-width:520px){.grid{grid-template-columns:1fr;}}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field.full{grid-column:1/-1;}
+label{font-size:9px;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);}
+input[type=number],input[type=text],select{
+  background:var(--card);border:1px solid var(--border);color:var(--text);
+  font-family:var(--mono);font-size:14px;padding:10px 14px;border-radius:4px;
+  outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;width:100%;}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(124,106,247,.15);}
+input::placeholder{color:var(--muted);opacity:.5;}
+select option{background:var(--card);}
+.hint{font-size:9px;color:var(--muted);opacity:.7;}
+
+/* ── DIRECTION SELECTOR ── */
+.dir-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:20px;}
+.dir-tab{flex:1;padding:14px;text-align:center;font-size:13px;font-family:var(--mono);
+  letter-spacing:.1em;border:none;cursor:pointer;background:transparent;color:var(--muted);
+  transition:all .2s;font-weight:500;}
+.dir-tab.yes.active{background:rgba(106,247,184,.15);color:var(--accent3);}
+.dir-tab.no.active{background:rgba(247,106,106,.15);color:var(--danger);}
+.dir-tab:not(.active):hover{color:var(--text);}
+
+/* ── ORDER BOOK — dos paneles separados ── */
+.ob-panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+@media(max-width:520px){.ob-panels{grid-template-columns:1fr;}}
+
+.ob-panel{background:var(--card);border:1px solid var(--border);border-radius:6px;overflow:hidden;
+  transition:border-color .2s,box-shadow .2s;opacity:.45;}
+.ob-panel.active-panel{opacity:1;}
+.ob-panel.yes-panel.active-panel{border-color:rgba(106,247,184,.4);box-shadow:0 0 0 1px rgba(106,247,184,.15);}
+.ob-panel.no-panel.active-panel{border-color:rgba(247,106,106,.4);box-shadow:0 0 0 1px rgba(247,106,106,.15);}
+
+.ob-panel-head{padding:10px 14px;border-bottom:1px solid var(--border);font-size:9px;
+  letter-spacing:.25em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
+.yes-panel .ob-panel-head{color:var(--accent3);}
+.no-panel  .ob-panel-head{color:var(--danger);}
+.ob-panel-head .sp-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;}
+.yes-panel .sp-badge{background:rgba(106,247,184,.1);}
+.no-panel  .sp-badge{background:rgba(247,106,106,.1);}
+
+.ob-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;}
+.ob-half{display:flex;flex-direction:column;gap:5px;}
+.ob-half label{font-size:8px;}
+.ob-half input{font-size:17px;font-weight:600;padding:9px 10px;text-align:center;}
+
+.yes-panel .ob-half.bid-side input{border-color:rgba(106,247,184,.25);color:var(--accent3);}
+.yes-panel .ob-half.ask-side input{border-color:rgba(106,247,184,.4); color:var(--accent3);}
+.yes-panel .ob-half input:focus{border-color:var(--accent3);box-shadow:0 0 0 2px rgba(106,247,184,.12);}
+
+.no-panel .ob-half.bid-side input{border-color:rgba(247,106,106,.25);color:var(--danger);}
+.no-panel .ob-half.ask-side input{border-color:rgba(247,106,106,.4); color:var(--danger);}
+.no-panel .ob-half input:focus{border-color:var(--danger);box-shadow:0 0 0 2px rgba(247,106,106,.12);}
+
+.ob-mid-row{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 12px;background:var(--surface);border-top:1px solid var(--border);font-size:10px;color:var(--muted);}
+.ob-mid-row .midval{font-weight:600;color:var(--text);}
+.spread-tag{font-size:9px;font-weight:600;padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
+.spread-tag.ok{color:var(--accent3);border-color:rgba(106,247,184,.3);}
+.spread-tag.warn{color:var(--accent2);border-color:rgba(247,198,106,.3);}
+.spread-tag.bad{color:var(--danger);border-color:rgba(247,106,106,.3);}
+
+/* order type */
+.ot-row{display:flex;gap:8px;padding:0 12px 12px;}
+.ot-btn{flex:1;padding:7px;border-radius:4px;border:1px solid var(--border);background:var(--surface);
+  color:var(--muted);font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;
+  cursor:pointer;transition:all .15s;text-align:center;}
+.ot-btn.al{background:rgba(124,106,247,.12);border-color:rgba(124,106,247,.4);color:var(--accent);}
+.ot-btn.am{background:rgba(247,198,106,.12);border-color:rgba(247,198,106,.4);color:var(--accent2);}
+.ot-advice{padding:8px 12px 12px;font-size:10px;color:var(--muted);line-height:1.6;
+  border-top:1px solid var(--border);}
+.ot-advice strong{color:var(--text);}
+
+/* buy sim */
+.bsim{background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:20px;overflow:hidden;}
+.bsim-head{padding:12px 16px;border-bottom:1px solid var(--border);font-size:9px;
+  letter-spacing:.25em;text-transform:uppercase;color:var(--muted);}
+.bsim-body{padding:16px;}
+.amt-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.amt-lbl{font-size:9px;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;white-space:nowrap;}
+.amt-wrap{position:relative;flex:1;}
+.amt-wrap input{font-size:18px;font-weight:600;padding-right:52px;text-align:right;}
+.amt-curr{position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  font-size:10px;color:var(--muted);pointer-events:none;}
+.quick{display:flex;gap:6px;margin-bottom:14px;}
+.qb{flex:1;padding:6px;font-size:10px;font-family:var(--mono);background:var(--surface);
+  border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer;
+  transition:all .15s;text-align:center;}
+.qb:hover{border-color:var(--accent);color:var(--accent);}
+.sim-sum{background:var(--surface);border-radius:4px;padding:12px;display:flex;flex-direction:column;gap:8px;}
+.sim-row{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);}
+.sim-row .sv{color:var(--text);font-weight:500;}
+.sim-row.tot{border-top:1px solid var(--border);padding-top:8px;margin-top:2px;}
+.sim-row.tot .sv{color:var(--accent3);font-size:14px;font-weight:600;}
+
+/* calc btn */
+.btn-calc{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;
+  font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+  cursor:pointer;border-radius:4px;transition:background .2s,transform .1s;margin-top:4px;}
+.btn-calc:hover{background:#9180ff;}
+.btn-calc:active{transform:scale(.99);}
+
+/* results */
+#results{margin-top:40px;display:none;}
+#results.visible{display:block;animation:fadeUp .4s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+
+.verdict{padding:18px 22px;border-radius:6px;margin-bottom:24px;display:flex;align-items:center;gap:16px;font-size:13px;}
+.verdict.go{background:rgba(106,247,184,.08);border:1px solid rgba(106,247,184,.3);}
+.verdict.caution{background:rgba(247,198,106,.08);border:1px solid rgba(247,198,106,.3);}
+.verdict.no{background:rgba(247,106,106,.08);border:1px solid rgba(247,106,106,.3);}
+.v-icon{font-size:26px;}
+.v-text strong{display:block;font-size:15px;margin-bottom:4px;font-family:var(--serif);}
+.v-text.go strong{color:var(--accent3);}
+.v-text.caution strong{color:var(--accent2);}
+.v-text.no strong{color:var(--danger);}
+
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+@media(max-width:520px){.metrics{grid-template-columns:1fr 1fr;}}
+.metric{background:var(--card);border:1px solid var(--border);padding:14px;border-radius:4px;text-align:center;}
+.m-lbl{font-size:8px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.m-val{font-size:20px;font-weight:600;line-height:1;}
+.m-sub{font-size:9px;color:var(--muted);margin-top:3px;}
+.pos{color:var(--accent3);}.neg{color:var(--danger);}.neu{color:var(--accent2);}.acc{color:var(--accent);}
+
+.sl-block{background:rgba(247,106,106,.06);border:1px solid rgba(247,106,106,.2);
+  border-radius:4px;padding:16px 18px;margin-bottom:14px;}
+.sl-ttl{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--danger);margin-bottom:8px;}
+.sl-main{font-size:17px;font-weight:600;color:var(--danger);margin-bottom:6px;}
+.sl-det{font-size:11px;color:var(--muted);line-height:1.7;}
+
+.dtable{background:var(--card);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:14px;}
+.drow{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;
+  border-bottom:1px solid var(--border);font-size:11px;gap:10px;}
+.drow:last-child{border-bottom:none;}
+.dl{color:var(--muted);flex:1;}
+.dv{font-weight:500;text-align:right;}
+
+.explainer{background:var(--card);border:1px solid var(--border);border-top:2px solid var(--accent2);
+  border-radius:4px;padding:16px 18px;margin-bottom:14px;}
+.ex-ttl{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent2);margin-bottom:14px;}
+.ex-term{font-size:11px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.ex-def{font-size:11px;color:var(--muted);line-height:1.6;}
+.ex-eg{margin-top:5px;background:var(--surface);border-radius:3px;padding:7px 10px;
+  font-size:10px;color:var(--accent3);font-style:italic;}
+.ex-block{margin-bottom:14px;}
+.ex-block:last-child{margin-bottom:0;}
+
+.rules-block{background:var(--card);border:1px solid var(--border);border-top:2px solid var(--accent);
+  border-radius:4px;padding:16px 18px;}
+.r-ttl{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;}
+.rule-item{display:flex;align-items:flex-start;gap:10px;font-size:11px;color:var(--muted);
+  padding:6px 0;border-bottom:1px solid rgba(42,42,61,.5);line-height:1.5;}
+.rule-item:last-child{border-bottom:none;}
+.ri{flex-shrink:0;}
+.rp{color:var(--accent3);}.rf{color:var(--danger);}.rw{color:var(--accent2);}
+
+.sep{margin:28px 0;}
+footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--border);
+  font-size:9px;color:var(--muted);letter-spacing:.15em;text-align:center;}
+footer em{color:var(--accent);font-style:italic;font-family:var(--serif);}
+footer a{color:var(--accent);text-decoration:none;font-style:italic;font-family:var(--serif);}
+footer a:hover{color:#9180ff;}
+.brand a{color:var(--accent);text-decoration:none;}
+.brand a:hover{color:#9180ff;}
+
+
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header>
+  <div class="brand"><a href="https://x.com/Koki_San7" target="_blank" rel="noopener">@KokiSan</a> · Sistema de Evaluación</div>
+  <h1>Evaluador de <span>Posiciones</span><br>Polymarket</h1>
+  <div class="tagline">EV · Kelly · Stop Loss · Spread · Limit vs Market</div>
+</header>
+
+<!-- CAPITAL -->
+<div class="slabel">Capital de portafolio</div>
+<div class="cap-bar">
+  <span style="color:var(--muted);font-size:11px;">Capital disponible (USDC)</span>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <input id="capital" type="number" min="1" max="10000" step="0.1" value="20" oninput="simUpdate()">
+    <span style="font-size:11px;color:var(--muted);">USD</span>
+  </div>
+</div>
+
+<!-- DATOS DEL MERCADO -->
+<div class="slabel">Datos del mercado</div>
+<div class="grid">
+  <div class="field full">
+    <label>Nombre del mercado / tesis</label>
+    <input type="text" id="market_name" placeholder="Ej: US-Iran ceasefire before June 2025">
+  </div>
+  <div class="field">
+    <label>Tu probabilidad estimada de YES (%)</label>
+    <input type="number" id="prob" min="1" max="99" step="1" placeholder="Ej: 35">
+    <span class="hint">Siempre en términos de YES, aunque compres NO.</span>
+  </div>
+  <div class="field">
+    <label>Liquidez del mercado</label>
+    <select id="liquidity">
+      <option value="alta">Alta (mercado activo)</option>
+      <option value="media" selected>Media</option>
+      <option value="baja">Baja (mercado pequeño)</option>
+    </select>
+  </div>
+</div>
+
+<!-- DIRECCIÓN -->
+<div class="slabel">¿Qué lado compras?</div>
+<div class="dir-tabs">
+  <button class="dir-tab yes active" id="tab-yes" onclick="setTab('YES')">
+    YES &nbsp;·&nbsp; creo que sí ocurre
+  </button>
+  <button class="dir-tab no" id="tab-no" onclick="setTab('NO')">
+    NO &nbsp;·&nbsp; creo que no ocurre
+  </button>
+</div>
+
+<!-- ORDER BOOK — paneles independientes -->
+<div class="slabel">Order book — ingresa los precios que ves en Polymarket</div>
+<div class="ob-panels">
+
+  <!-- YES panel -->
+  <div class="ob-panel yes-panel active-panel" id="panel-yes">
+    <div class="ob-panel-head">
+      YES <span class="sp-badge" id="sp-yes">spread: —</span>
+    </div>
+    <div class="ob-pair">
+      <div class="ob-half bid-side">
+        <label>Bid YES (¢)</label>
+        <input type="number" id="yes-bid" min="1" max="98" step="0.5" placeholder="27" oninput="onBook('yes')">
+        <span class="hint">Lo que pagan</span>
+      </div>
+      <div class="ob-half ask-side">
+        <label>Ask YES (¢)</label>
+        <input type="number" id="yes-ask" min="2" max="99" step="0.5" placeholder="30" oninput="onBook('yes')">
+        <span class="hint">Lo que piden</span>
+      </div>
+    </div>
+    <div class="ob-mid-row">
+      <span>midpoint</span>
+      <span class="midval" id="yes-mid">—</span>
+      <span class="spread-tag" id="yes-stag">—</span>
+    </div>
+    <div class="ot-row">
+      <button class="ot-btn al" id="yes-btn-limit"  onclick="setOT('yes','limit')">Limit ★</button>
+      <button class="ot-btn"    id="yes-btn-market" onclick="setOT('yes','market')">Market</button>
+    </div>
+    <div class="ot-advice" id="yes-ot-advice" style="font-size:10px;padding:8px 12px 12px;border-top:1px solid var(--border);color:var(--muted);">
+      <strong style="color:var(--text)">Limit recomendado:</strong> pon tu precio al midpoint.
+    </div>
+  </div>
+
+  <!-- NO panel -->
+  <div class="ob-panel no-panel" id="panel-no">
+    <div class="ob-panel-head">
+      NO <span class="sp-badge" id="sp-no">spread: —</span>
+    </div>
+    <div class="ob-pair">
+      <div class="ob-half bid-side">
+        <label>Bid NO (¢)</label>
+        <input type="number" id="no-bid" min="1" max="98" step="0.5" placeholder="68" oninput="onBook('no')">
+        <span class="hint">Lo que pagan</span>
+      </div>
+      <div class="ob-half ask-side">
+        <label>Ask NO (¢)</label>
+        <input type="number" id="no-ask" min="2" max="99" step="0.5" placeholder="72" oninput="onBook('no')">
+        <span class="hint">Lo que piden</span>
+      </div>
+    </div>
+    <div class="ob-mid-row">
+      <span>midpoint</span>
+      <span class="midval" id="no-mid">—</span>
+      <span class="spread-tag" id="no-stag">—</span>
+    </div>
+    <div class="ot-row">
+      <button class="ot-btn al" id="no-btn-limit"  onclick="setOT('no','limit')">Limit ★</button>
+      <button class="ot-btn"    id="no-btn-market" onclick="setOT('no','market')">Market</button>
+    </div>
+    <div class="ot-advice" id="no-ot-advice" style="font-size:10px;padding:8px 12px 12px;border-top:1px solid var(--border);color:var(--muted);">
+      <strong style="color:var(--text)">Limit recomendado:</strong> pon tu precio al midpoint.
+    </div>
+  </div>
+
+</div>
+
+<!-- BUY SIM -->
+<div class="slabel">Simulador de compra</div>
+<div class="bsim">
+  <div class="bsim-head">¿Cuánto quieres invertir? (como en Polymarket)</div>
+  <div class="bsim-body">
+    <div class="amt-row">
+      <span class="amt-lbl">Monto</span>
+      <div class="amt-wrap">
+        <input type="number" id="amt" min="0.5" max="1000" step="0.5" value="2" oninput="simUpdate()">
+        <span class="amt-curr">USDC</span>
+      </div>
+    </div>
+    <div class="quick">
+      <button class="qb" onclick="setAmt(1)">$1</button>
+      <button class="qb" onclick="setAmt(2)">$2</button>
+      <button class="qb" onclick="setAmt(5)">$5</button>
+      <button class="qb" onclick="setAmt(10)">$10</button>
+      <button class="qb" onclick="setAmtKelly()">Kelly ¼</button>
+    </div>
+    <div class="sim-sum">
+      <div class="sim-row"><span>Comprando</span><span class="sv" id="sim-side">—</span></div>
+      <div class="sim-row"><span>Precio de entrada</span><span class="sv" id="sim-price">—</span></div>
+      <div class="sim-row"><span>Contratos a recibir</span><span class="sv" id="sim-contracts">—</span></div>
+      <div class="sim-row"><span>Costo total</span><span class="sv" id="sim-cost">—</span></div>
+      <div class="sim-row tot"><span>Si gana, recibes en total</span><span class="sv" id="sim-profit">—</span></div>
+    </div>
+  </div>
+</div>
+
+<button class="btn-calc" onclick="calcular()">▶ Evaluar operación completa</button>
+
+<!-- RESULTS -->
+<div id="results">
+  <div class="sep"></div>
+  <div class="slabel">Resultado del análisis</div>
+
+  <div id="verdict" class="verdict go">
+    <div class="v-icon" id="v-icon">✦</div>
+    <div class="v-text go" id="v-text">
+      <strong id="v-title">—</strong>
+      <span id="v-desc">—</span>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="m-lbl">EV por contrato</div><div class="m-val" id="r-ev">—</div><div class="m-sub">Expected Value (¢)</div></div>
+    <div class="metric"><div class="m-lbl">EV bruto %</div><div class="m-val" id="r-evp">—</div><div class="m-sub">antes del spread</div></div>
+    <div class="metric"><div class="m-lbl">EV real %</div><div class="m-val" id="r-evr">—</div><div class="m-sub">después del spread</div></div>
+    <div class="metric"><div class="m-lbl">Kelly completo</div><div class="m-val acc" id="r-kf">—</div><div class="m-sub">% del capital</div></div>
+    <div class="metric"><div class="m-lbl">Quarter Kelly</div><div class="m-val acc" id="r-kq">—</div><div class="m-sub">tu fracción</div></div>
+    <div class="metric"><div class="m-lbl">Apuesta sugerida</div><div class="m-val neu" id="r-bet">—</div><div class="m-sub">USD a invertir</div></div>
+  </div>
+
+  <div class="sl-block">
+    <div class="sl-ttl">⚠ Stop Loss sugerido</div>
+    <div class="sl-main" id="r-sl-main">—</div>
+    <div class="sl-det" id="r-sl-det">—</div>
+  </div>
+
+  <div class="dtable">
+    <div class="drow"><span class="dl">Lado comprado</span><span class="dv" id="d-dir">—</span></div>
+    <div class="drow"><span class="dl">Precio de entrada</span><span class="dv" id="d-entry">—</span></div>
+    <div class="drow"><span class="dl">Tipo de orden</span><span class="dv" id="d-order">—</span></div>
+    <div class="drow"><span class="dl">Tu prob. estimada (YES)</span><span class="dv" id="d-prob">—</span></div>
+    <div class="drow"><span class="dl">Probabilidad implícita del mercado</span><span class="dv" id="d-mktprob">—</span></div>
+    <div class="drow"><span class="dl">Edge sobre el mercado</span><span class="dv" id="d-edge">—</span></div>
+    <div class="drow"><span class="dl">Spread del lado elegido</span><span class="dv" id="d-spread">—</span></div>
+    <div class="drow"><span class="dl">Contratos a comprar (Kelly ¼)</span><span class="dv" id="d-contracts">—</span></div>
+    <div class="drow"><span class="dl">Ganancia si resuelve a favor</span><span class="dv" id="d-profit">—</span></div>
+    <div class="drow"><span class="dl">Pérdida máxima (stop loss)</span><span class="dv" id="d-slloss">—</span></div>
+  </div>
+
+  <div class="explainer">
+    <div class="ex-ttl">📖 Qué son bid, ask, spread, limit y market</div>
+    <div class="ex-block" id="ex-spread-dyn"></div>
+    <div class="ex-block">
+      <div class="ex-term">Market order — rápido pero caro</div>
+      <div class="ex-def">Compras inmediatamente al ask. Sin espera, pero pagas lo que el mercado pida. Malo cuando el spread es grande.</div>
+      <div class="ex-eg" id="ex-market-eg">—</div>
+    </div>
+    <div class="ex-block">
+      <div class="ex-term">Limit order ★ — la recomendada para tu perfil</div>
+      <div class="ex-def">Pones tú el precio exacto. Tu orden espera en el book hasta que alguien acepte. Pagas menos que el ask, ahorras spread.</div>
+      <div class="ex-eg" id="ex-limit-eg">—</div>
+    </div>
+  </div>
+
+  <div class="rules-block">
+    <div class="r-ttl">Checklist de reglas <a href="https://x.com/Koki_San7" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-family:var(--serif);font-style:italic;">@KokiSan</a></div>
+    <div id="rules-list"></div>
+  </div>
+</div>
+
+<footer><a href="https://x.com/Koki_San7" target="_blank" rel="noopener">@KokiSan</a> · Polymarket Evaluator · Quarter Kelly siempre · Stop antes de entrar</footer>
+</div>
+
+<script>
+// ── STATE ──
+// YES y NO tienen su propio OT y sus propios precios. Nunca se mezclan.
+let TAB = 'YES';
+let OT  = { yes: 'limit', no: 'limit' };
+let lastKelly = 2;
+
+// ── TAB SELECTOR ──
+function setTab(t) {
+  TAB = t;
+  document.getElementById('tab-yes').className = 'dir-tab yes' + (t==='YES'?' active':'');
+  document.getElementById('tab-no').className  = 'dir-tab no'  + (t==='NO' ?' active':'');
+  document.getElementById('panel-yes').className = 'ob-panel yes-panel' + (t==='YES'?' active-panel':'');
+  document.getElementById('panel-no').className  = 'ob-panel no-panel'  + (t==='NO' ?' active-panel':'');
+  simUpdate();
+}
+
+// ── ORDER TYPE (por panel) ──
+function setOT(side, type) {
+  OT[side] = type;
+  document.getElementById(side+'-btn-limit').className  = 'ot-btn' + (type==='limit' ?' al':'');
+  document.getElementById(side+'-btn-market').className = 'ot-btn' + (type==='market'?' am':'');
+
+  const b   = +document.getElementById(side+'-bid').value || 0;
+  const a   = +document.getElementById(side+'-ask').value || 0;
+  const sp  = a - b;
+  const mid = (b+a)/2;
+  const adv = document.getElementById(side+'-ot-advice');
+
+  if (type==='limit') {
+    adv.innerHTML = `<strong style="color:var(--text)">Limit order:</strong> pon precio a ${mid?mid.toFixed(1)+'¢':'el midpoint'}. No regalas el spread.`;
+  } else {
+    if (sp > 3) {
+      adv.innerHTML = `<strong style="color:var(--danger)">⚠ Market order con spread ${sp.toFixed(1)}¢:</strong> pagas ${a}¢, si sales rápido recibes ${b}¢. Mejor usa limit.`;
+    } else {
+      adv.innerHTML = `<strong style="color:var(--text)">Market order:</strong> spread pequeño (${sp.toFixed(1)}¢), aceptable.`;
+    }
+  }
+  simUpdate();
+}
+
+// ── BOOK UPDATE (por panel) ──
+function onBook(side) {
+  const b  = +document.getElementById(side+'-bid').value || 0;
+  const a  = +document.getElementById(side+'-ask').value || 0;
+  const mid_id   = side+'-mid';
+  const stag_id  = side+'-stag';
+  const sp_id    = 'sp-'+side;
+
+  if (!b || !a || a <= b) {
+    document.getElementById(mid_id).textContent  = '—';
+    document.getElementById(stag_id).textContent = '—';
+    document.getElementById(stag_id).className   = 'spread-tag';
+    document.getElementById(sp_id).textContent   = 'spread: —';
+    return;
+  }
+  const sp  = a - b;
+  const mid = (b+a)/2;
+  document.getElementById(sp_id).textContent  = 'spread: '+sp.toFixed(1)+'¢';
+  document.getElementById(mid_id).textContent = mid.toFixed(1)+'¢';
+
+  const stag = document.getElementById(stag_id);
+  if (sp <= 2) { stag.textContent = sp.toFixed(1)+'¢ ✓ ok';    stag.className = 'spread-tag ok'; }
+  else if (sp<=5){ stag.textContent = sp.toFixed(1)+'¢ ⚠ medio'; stag.className = 'spread-tag warn';}
+  else          { stag.textContent = sp.toFixed(1)+'¢ ✗ alto';   stag.className = 'spread-tag bad'; }
+
+  setOT(side, OT[side]);
+  simUpdate();
+}
+
+// ── GET ENTRY PRICE para el tab activo ──
+function getEntry(tab) {
+  const side = tab.toLowerCase();
+  const b = +document.getElementById(side+'-bid').value || 0;
+  const a = +document.getElementById(side+'-ask').value || 0;
+  if (!b && !a) return 0;
+  const mid = (b+a)/2 || a || b;
+  return OT[side]==='limit' ? mid/100 : (a||mid)/100;
+}
+
+// ── SIMULADOR ──
+function setAmt(v)     { document.getElementById('amt').value = v;              simUpdate(); }
+function setAmtKelly() { document.getElementById('amt').value = lastKelly.toFixed(2); simUpdate(); }
+
+function simUpdate() {
+  const ep  = getEntry(TAB);
+  const usd = +document.getElementById('amt').value || 0;
+  const sideLabel = TAB;
+  const otLabel   = OT[TAB.toLowerCase()]==='limit' ? 'limit (midpoint)' : 'market (ask)';
+
+  document.getElementById('sim-side').textContent = sideLabel;
+
+  if (!ep || ep<=0 || ep>=1) {
+    ['sim-price','sim-contracts','sim-cost','sim-profit'].forEach(id=>document.getElementById(id).textContent='—');
+    return;
+  }
+  const contracts = usd / ep;
+  const gain      = contracts * (1 - ep);
+  document.getElementById('sim-price').textContent     = (ep*100).toFixed(1)+'¢ ('+otLabel+')';
+  document.getElementById('sim-contracts').textContent = contracts.toFixed(1)+' contratos';
+  document.getElementById('sim-cost').textContent      = '$'+usd.toFixed(2)+' USDC';
+  document.getElementById('sim-profit').textContent    = '$'+(usd+gain).toFixed(2)+' USDC (+$'+gain.toFixed(2)+')';
+}
+
+// ── CÁLCULO PRINCIPAL ──
+function calcular() {
+  const capital   = +document.getElementById('capital').value || 20;
+  const prob_yes  = +document.getElementById('prob').value;         // probabilidad de YES según tú
+  const liquidity = document.getElementById('liquidity').value;
+  const side      = TAB.toLowerCase();
+
+  const b_raw = +document.getElementById(side+'-bid').value;
+  const a_raw = +document.getElementById(side+'-ask').value;
+
+  if (!prob_yes)             { alert('Ingresa tu probabilidad estimada de YES.'); return; }
+  if (!b_raw || !a_raw)      { alert('Ingresa bid y ask del panel '+TAB+'.'); return; }
+  if (a_raw <= b_raw)        { alert('El ask debe ser mayor que el bid.'); return; }
+  const otherSide = side === 'yes' ? 'no' : 'yes';
+  const otherB = +document.getElementById(otherSide+'-bid').value;
+  const otherA = +document.getElementById(otherSide+'-ask').value;
+  if (otherB || otherA) {
+    const ok = confirm('Tienes datos en el panel '+otherSide.toUpperCase()+' pero estás evaluando '+TAB+'.\n¿Continuar con '+TAB+'?');
+    if (!ok) return;
+  }
+
+  const spread  = a_raw - b_raw;
+  const midVal  = (b_raw + a_raw) / 2;
+
+  // Precio de entrada según OT
+  const entry_cents = OT[side]==='limit' ? midVal : a_raw;
+  const ep          = entry_cents / 100;   // precio normalizado del lado comprado
+
+  // Probabilidad del trader: siempre en términos del lado comprado
+  // Si compra YES: p = prob de que YES resuelva = prob_yes / 100
+  // Si compra NO:  p = prob de que NO resuelva  = (100 - prob_yes) / 100
+  const p = TAB === 'YES' ? prob_yes/100 : (100-prob_yes)/100;
+
+  // Probabilidad implícita del mercado para el lado comprado
+  // El midpoint de ese lado es la prob implícita
+  const mkt_prob = midVal / 100;
+
+  // EV = p*(1-ep) - (1-p)*ep
+  const b_odds = (1-ep)/ep;
+  const q      = 1-p;
+  const ev     = p*(1-ep) - q*ep;
+  const ev_pct = ev/ep*100;
+
+  // EV real descontando medio spread
+  const ev_real     = ev - (spread/2)/100;
+  const ev_real_pct = ev_real/ep*100;
+
+  // Kelly
+  const kelly = (b_odds*p - q)/b_odds;
+  const qk    = Math.max(0, kelly/4);
+  let   bet   = Math.min(qk*capital, capital*0.15);
+  bet         = Math.max(0, bet);
+  lastKelly   = bet;
+
+  const usd       = +document.getElementById('amt').value || bet;
+  const contracts = usd / ep;
+  const profit    = contracts * (1-ep);
+  const edge_pct  = (p - mkt_prob)*100;
+
+  // Stop loss inteligente según precio de entrada
+  const p100 = ep*100;
+  const sl_pct = p100<=15? 35 : p100<=25? 40 : p100<=40? 50 : p100<=55? 55 : 60;
+  const sl_exit = p100*(1-sl_pct/100);
+  const sl_loss = usd*sl_pct/100;
+
+  // ── RENDER ──
+  document.getElementById('r-ev').textContent = (ev*100).toFixed(2)+'¢';
+  document.getElementById('r-ev').className   = 'm-val '+(ev>0?'pos':'neg');
+  document.getElementById('r-evp').textContent = ev_pct.toFixed(1)+'%';
+  document.getElementById('r-evp').className   = 'm-val '+(ev_pct>0?'pos':'neg');
+  document.getElementById('r-evr').textContent = (ev_real_pct>=0?'+':'')+ev_real_pct.toFixed(1)+'%';
+  document.getElementById('r-evr').className   = 'm-val '+(ev_real>0?'pos':'neg');
+  document.getElementById('r-kf').textContent  = (kelly*100).toFixed(1)+'%';
+  document.getElementById('r-kq').textContent  = (qk*100).toFixed(1)+'%';
+  document.getElementById('r-bet').textContent = '$'+bet.toFixed(2);
+
+  // Stop loss
+  document.getElementById('r-sl-main').textContent =
+    `Sal si ${TAB} baja a ${sl_exit.toFixed(1)}¢  (caída de ${sl_pct}% desde tu entrada)`;
+  document.getElementById('r-sl-det').innerHTML =
+    `Entrada: ${p100.toFixed(1)}¢  →  Stop: ${sl_exit.toFixed(1)}¢<br>
+     Pérdida máxima si activas el stop: <strong style="color:var(--danger)">–$${sl_loss.toFixed(2)} USD</strong><br>
+     Anota este precio en tu journal ANTES de ejecutar la orden.`;
+
+  // Detail table
+  document.getElementById('d-dir').textContent     = TAB+' (compra '+TAB+')';
+  document.getElementById('d-entry').textContent   = p100.toFixed(1)+'¢';
+  document.getElementById('d-order').textContent   = OT[side]==='limit' ? `Limit a ${midVal.toFixed(1)}¢ (midpoint)` : `Market (ask ${a_raw}¢)`;
+  document.getElementById('d-prob').textContent    = prob_yes+'% YES → '+(TAB==='YES'?prob_yes:100-prob_yes)+'% de que '+TAB+' gane';
+  document.getElementById('d-mktprob').textContent = (mkt_prob*100).toFixed(1)+'% (midpoint del mercado)';
+  document.getElementById('d-edge').textContent    = (edge_pct>=0?'+':'')+edge_pct.toFixed(1)+' pp';
+  document.getElementById('d-edge').style.color    = edge_pct>0?'var(--accent3)':'var(--danger)';
+  document.getElementById('d-spread').textContent  = spread.toFixed(1)+'¢ '+(spread<=2?'✓ ok':spread<=5?'⚠ medio':'✗ alto');
+  document.getElementById('d-contracts').textContent = contracts.toFixed(1)+' contratos';
+  document.getElementById('d-profit').textContent  = '+$'+profit.toFixed(2)+' USD';
+  document.getElementById('d-slloss').textContent  = '–$'+sl_loss.toFixed(2)+' USD';
+
+  // Explainer dinámico con los números reales
+  document.getElementById('ex-spread-dyn').innerHTML = `
+    <div class="ex-term">Spread de ${TAB} en este mercado: ${spread.toFixed(1)}¢</div>
+    <div class="ex-def">
+      Bid = ${b_raw}¢ · Ask = ${a_raw}¢ · Midpoint = ${midVal.toFixed(1)}¢<br>
+      ${spread<=2
+        ? 'Spread pequeño, mercado líquido. Puedes usar market order sin problema.'
+        : spread<=5
+          ? `Spread medio. Market order pagas ${a_raw}¢, limit order al midpoint pagas ${midVal.toFixed(1)}¢. Ahorras ${(a_raw-midVal).toFixed(1)}¢ por contrato.`
+          : `Spread alto. Evita market order. La diferencia de ${spread.toFixed(1)}¢ por contrato puede destruir tu EV.`}
+    </div>`;
+
+  document.getElementById('ex-market-eg').textContent =
+    `Con estos datos: market order en ${TAB} = pagas ${a_raw}¢. Si sales de inmediato recibes ${b_raw}¢. Pérdida inmediata por spread: ${spread.toFixed(1)}¢ por contrato.`;
+  document.getElementById('ex-limit-eg').textContent =
+    `Con estos datos: limit order en ${TAB} a ${midVal.toFixed(1)}¢. Ahorras ${(a_raw-midVal).toFixed(1)}¢ por contrato vs market. En ${contracts.toFixed(0)} contratos = $${(contracts*(a_raw-midVal)/100).toFixed(2)} USD ahorrados.`;
+
+  renderChecklist({ev,ev_pct,ev_real,kelly,ep,p,edge_pct,liquidity,capital,bet,spread,OT:OT[side]});
+  renderVerdict(ev,ev_pct,ev_real,edge_pct,ep,kelly,spread);
+
+  simUpdate();
+  document.getElementById('results').classList.add('visible');
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderVerdict(ev,ev_pct,ev_real,edge_pct,price,kelly,spread){
+  const vEl=document.getElementById('verdict');
+  const vi=document.getElementById('v-icon');
+  const vt=document.getElementById('v-text');
+  const vti=document.getElementById('v-title');
+  const vd=document.getElementById('v-desc');
+  vEl.className='verdict'; vt.className='v-text';
+  if(ev<=0||edge_pct<=0){
+    vEl.classList.add('no');vt.classList.add('no');vi.textContent='✕';
+    vti.textContent='No operes esto.';
+    vd.textContent=`EV negativo (${ev_pct.toFixed(1)}%). El mercado ya tiene este precio bien calculado. Espera un movimiento o descarta.`;
+  } else if(ev_real<=0&&spread>4){
+    vEl.classList.add('no');vt.classList.add('no');vi.textContent='✕';
+    vti.textContent='EV positivo pero el spread lo destruye.';
+    vd.textContent=`Edge de +${edge_pct.toFixed(1)} pp, pero el spread de ${spread.toFixed(1)}¢ consume la ventaja. Solo viable con limit order si el spread baja.`;
+  } else if(ev_pct<5||kelly<=0.02){
+    vEl.classList.add('caution');vt.classList.add('caution');vi.textContent='◈';
+    vti.textContent='Edge pequeño. Apuesta mínima si entras.';
+    vd.textContent=`EV ${ev_pct.toFixed(1)}%. Margen estrecho. Solo si tienes alta convicción en la tesis.`;
+  } else if(ev_pct>=5&&edge_pct>3&&price*100>=10&&price*100<=70){
+    vEl.classList.add('go');vt.classList.add('go');vi.textContent='✦';
+    vti.textContent='Operación válida. Entra con Quarter Kelly.';
+    vd.textContent=`EV +${ev_pct.toFixed(1)}% (real: ${ev_real>0?'+':''}${(ev_real/price*100).toFixed(1)}%), edge ${edge_pct.toFixed(1)} pp. Precio en rango. Usa limit order.`;
+  } else {
+    vEl.classList.add('caution');vt.classList.add('caution');vi.textContent='◈';
+    vti.textContent='Revisa antes de entrar.';
+    vd.textContent=`Edge de +${edge_pct.toFixed(1)} pp pero verifica precio 10-65¢ y spread manejable.`;
+  }
+}
+
+function renderChecklist(d){
+  const {ev,ev_pct,ev_real,kelly,ep,p,edge_pct,liquidity,capital,bet,spread,OT:ot}=d;
+  const p100=ep*100;
+  const checks=[
+    {icon:ev>0?'✓':'✗',cls:ev>0?'rp':'rf',label:'EV positivo (bruto)',
+     note:ev>0?`+${ev_pct.toFixed(1)}%`:`EV negativo — no operar`},
+    {icon:ev_real>0?'✓':spread<=3?'⚠':'✗',cls:ev_real>0?'rp':spread<=3?'rw':'rf',
+     label:'EV positivo después del spread',
+     note:ev_real>0?`+${(ev_real/ep*100).toFixed(1)}% real`:`Spread consume el edge — solo viable con limit y spread bajo`},
+    {icon:(p100>=10&&p100<=70)?'✓':'⚠',cls:(p100>=10&&p100<=70)?'rp':'rw',
+     label:'Precio en rango 10-70¢',
+     note:`Precio: ${p100.toFixed(1)}¢ ${p100<10?'— muy barato, cuidado':p100>70?'— caro, poca upside':'— OK'}`},
+    {icon:edge_pct>2?'✓':edge_pct>0?'⚠':'✗',cls:edge_pct>2?'rp':edge_pct>0?'rw':'rf',
+     label:'Edge > 2 pp',
+     note:`${edge_pct>=0?'+':''}${edge_pct.toFixed(1)} pp sobre el precio del mercado`},
+    {icon:spread<=3?'✓':spread<=5?'⚠':'✗',cls:spread<=3?'rp':spread<=5?'rw':'rf',
+     label:'Spread ≤ 3¢',
+     note:`Spread: ${spread.toFixed(1)}¢ ${spread<=3?'— ok':spread<=5?'— usa limit obligatorio':'— muy alto'}`},
+    {icon:ot==='limit'?'✓':spread>3?'✗':'⚠',cls:ot==='limit'?'rp':spread>3?'rf':'rw',
+     label:'Usando limit order',
+     note:ot==='limit'?'Limit al midpoint — correcto':spread>3?'Market con spread alto — cambia a limit':'Market con spread pequeño, aceptable'},
+    {icon:(bet/capital)<=0.15?'✓':'⚠',cls:(bet/capital)<=0.15?'rp':'rw',
+     label:'Apuesta ≤ 15% del capital',
+     note:`$${bet.toFixed(2)} de $${capital} = ${(bet/capital*100).toFixed(1)}%`},
+    {icon:liquidity!=='baja'?'✓':'⚠',cls:liquidity!=='baja'?'rp':'rw',
+     label:'Liquidez aceptable',
+     note:liquidity==='alta'?'Buena ejecución':liquidity==='media'?'Revisa el order book':'Baja — difícil salir'},
+    {icon:'◈',cls:'rw',label:'Stop loss anotado ANTES de entrar',
+     note:'Regla irrompible. Precio de salida al journal ahora.'},
+    {icon:'◈',cls:'rw',label:'Tesis en una frase',
+     note:'Si no puedes explicar por qué el mercado está mal valuado, no entres.'}
+  ];
+  document.getElementById('rules-list').innerHTML=checks.map(c=>`
+    <div class="rule-item">
+      <span class="ri ${c.cls}">${c.icon}</span>
+      <div><strong style="font-size:11px;color:var(--text);">${c.label}</strong><br><span>${c.note}</span></div>
+    </div>`).join('');
+}
+
+simUpdate();
+</script>
+</body>
+</html>
